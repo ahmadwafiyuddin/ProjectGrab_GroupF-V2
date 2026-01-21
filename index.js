@@ -12,7 +12,7 @@ app.use(express.json());
 const port = process.env.PORT || 8080;
 let db;
 
-// 🔹 Connect to MongoDB
+// 🔹 Connect to MongoDB (MyTaxi / GrabDB)
 async function connectDB() {
     const uri = process.env.MONGO_URI || "mongodb://127.0.0.1:27017";
     const client = new MongoClient(uri);
@@ -47,10 +47,10 @@ function requireAdmin(req, res, next) {
 }
 
 // ==========================================
-// 🎨 FRONTEND: HTML UI (Modern & Beautiful)
+// 🎨 FRONTEND: MODERN UI (Green Theme)
 // ==========================================
 
-// 1️⃣ LOGIN & REGISTER PAGE UI
+// 1️⃣ LOGIN & REGISTER PAGE
 app.get('/login', (req, res) => {
     res.send(`
     <!DOCTYPE html>
@@ -86,12 +86,13 @@ app.get('/login', (req, res) => {
 
             <div id="regForm" class="hidden">
                 <h3 style="color:#444;">Join Grab</h3>
-                <input type="text" id="r_name" placeholder="Full Name">
+                <input type="text" id="r_username" placeholder="Username (e.g. Alvinc2)">
                 <input type="email" id="r_email" placeholder="Email Address">
                 <input type="password" id="r_password" placeholder="Create Password">
                 <select id="r_role">
                     <option value="customer">I am a Passenger</option>
                     <option value="driver">I am a Driver</option>
+                    <option value="admin">Admin (Staff)</option>
                 </select>
                 <button onclick="register()">Sign Up</button>
                 <div class="toggle" onclick="toggleForms()">Already have an account? Log In</div>
@@ -101,14 +102,12 @@ app.get('/login', (req, res) => {
         </div>
 
         <script>
-            // Toggle between Login and Register
             function toggleForms() {
                 document.getElementById('loginForm').classList.toggle('hidden');
                 document.getElementById('regForm').classList.toggle('hidden');
                 document.getElementById('errorMsg').style.display = 'none';
             }
 
-            // LOGIN LOGIC
             async function login() {
                 const email = document.getElementById('l_email').value;
                 const password = document.getElementById('l_password').value;
@@ -125,8 +124,8 @@ app.get('/login', (req, res) => {
                     if (res.ok) {
                         localStorage.setItem('token', data.token);
                         localStorage.setItem('role', data.role);
-                        localStorage.setItem('user', email);
-                        window.location.href = '/'; // Go to Dashboard
+                        localStorage.setItem('user', data.username || email);
+                        window.location.href = '/'; 
                     } else {
                         errorBox.innerText = data.error;
                         errorBox.style.display = 'block';
@@ -137,9 +136,8 @@ app.get('/login', (req, res) => {
                 }
             }
 
-            // REGISTER LOGIC
             async function register() {
-                const name = document.getElementById('r_name').value;
+                const username = document.getElementById('r_username').value;
                 const email = document.getElementById('r_email').value;
                 const password = document.getElementById('r_password').value;
                 const role = document.getElementById('r_role').value;
@@ -149,7 +147,7 @@ app.get('/login', (req, res) => {
                     const res = await fetch('/api/auth/register', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name, email, password, role })
+                        body: JSON.stringify({ username, email, password, role })
                     });
                     
                     if (res.ok) {
@@ -171,7 +169,7 @@ app.get('/login', (req, res) => {
     `);
 });
 
-// 2️⃣ MAIN DASHBOARD UI
+// 2️⃣ MAIN DASHBOARD UI (Smart Logic)
 app.get('/', (req, res) => {
     res.send(`
     <!DOCTYPE html>
@@ -180,31 +178,24 @@ app.get('/', (req, res) => {
         <meta charset="UTF-8">
         <title>Grab | Dashboard</title>
         <style>
-            :root { --grab-green: #00B140; --dark: #1F1F1F; --gray: #F4F4F4; }
+            :root { --grab-green: #00B140; --dark: #1F1F1F; --gray: #F4F4F4; --danger: #dc3545; }
             body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--gray); }
             
-            /* Navbar */
             nav { background: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
             nav h2 { margin: 0; color: var(--grab-green); font-weight: 800; }
             nav .user-info { font-size: 14px; color: #555; }
             nav button { background: #eee; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; margin-left: 10px; font-weight: bold; }
-            nav button:hover { background: #ddd; }
-
-            /* Main Content */
-            .container { max-width: 800px; margin: 40px auto; padding: 0 20px; }
+            
+            .container { max-width: 900px; margin: 40px auto; padding: 0 20px; }
             .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-bottom: 20px; text-align: center; }
-            .card h3 { margin-top: 0; color: #333; }
-
-            /* Action Buttons */
+            
             .btn { background: var(--grab-green); color: white; padding: 12px 25px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; transition: 0.2s; display: inline-block; margin: 5px; }
             .btn:hover { background: #009e39; }
-            .btn-sec { background: white; color: #333; border: 2px solid #ddd; }
-            .btn-sec:hover { border-color: #bbb; }
-
-            /* List */
-            #listArea { text-align: left; margin-top: 20px; }
-            .item { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid var(--grab-green); display: flex; justify-content: space-between; align-items: center; }
-            .status { font-size: 12px; font-weight: bold; padding: 4px 8px; border-radius: 4px; background: #e0f7fa; color: #006064; }
+            .btn-danger { background: var(--danger); }
+            .btn-danger:hover { background: #c82333; }
+            
+            .item { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid var(--grab-green); display: flex; justify-content: space-between; align-items: center; text-align: left; }
+            input { padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin: 5px; width: 30%; }
         </style>
     </head>
     <body>
@@ -218,16 +209,25 @@ app.get('/', (req, res) => {
 
         <div class="container">
             <div class="card">
-                <h1 id="welcomeText">Welcome to Grab</h1>
-                <p>Secure Ride Booking Platform</p>
+                <h1 id="welcomeText">Welcome</h1>
+                <p id="subText">Secure Ride Booking Platform</p>
+                
                 <div id="customerActions" style="display:none;">
-                    <input type="text" id="pickup" placeholder="Pickup Location" style="padding:10px; width:45%; margin-right:5px;">
-                    <input type="text" id="dropoff" placeholder="Destination" style="padding:10px; width:45%;">
+                    <input type="text" id="pickup" placeholder="Pickup Location">
+                    <input type="text" id="dropoff" placeholder="Destination">
+                    <input type="number" id="distance" placeholder="Dist (km)" style="width: 15%">
                     <br><br>
-                    <button class="btn" onclick="bookRide()">🚗 Book Ride (RM 15.00)</button>
+                    <button class="btn" onclick="bookRide()">🚗 Book Ride</button>
+                    <p style="font-size: 12px; color: #888;">*Fare is calculated at RM 2.00 per KM</p>
                 </div>
+
                 <div id="driverActions" style="display:none;">
                     <button class="btn" onclick="fetchRides()">🔄 Refresh Job Board</button>
+                </div>
+
+                <div id="adminActions" style="display:none;">
+                    <button class="btn" onclick="fetchUsers()">👥 Manage Users</button>
+                    <button class="btn" onclick="fetchReports()">📊 View Analytics</button>
                 </div>
             </div>
 
@@ -239,93 +239,116 @@ app.get('/', (req, res) => {
             const role = localStorage.getItem('role');
             const user = localStorage.getItem('user');
 
-            // 🔒 SECURITY CHECK: If no token, kick to login
-            if (!token) {
-                window.location.href = '/login';
-            } else {
-                document.getElementById('displayUser').innerText = user + " (" + role.toUpperCase() + ")";
-                
-                // Show buttons based on Role
-                if (role === 'customer') {
-                    document.getElementById('customerActions').style.display = 'block';
-                    document.getElementById('welcomeText').innerText = "Where to today?";
-                    fetchTrack(); // Check if user has active rides
-                } else if (role === 'driver') {
-                    document.getElementById('driverActions').style.display = 'block';
-                    document.getElementById('welcomeText').innerText = "Ready to drive?";
-                    fetchRides(); // Load jobs immediately
-                }
+            if (!token) window.location.href = '/login';
+
+            document.getElementById('displayUser').innerText = user + " (" + role.toUpperCase() + ")";
+
+            // --- UI SETUP BASED ON ROLE ---
+            if (role === 'customer') {
+                document.getElementById('customerActions').style.display = 'block';
+                document.getElementById('welcomeText').innerText = "Where to today, " + user + "?";
+            } else if (role === 'driver') {
+                document.getElementById('driverActions').style.display = 'block';
+                document.getElementById('welcomeText').innerText = "Ready to earn, " + user + "?";
+                fetchRides();
+            } else if (role === 'admin') {
+                document.getElementById('adminActions').style.display = 'block';
+                document.getElementById('welcomeText').innerText = "Admin Dashboard";
+                document.getElementById('subText').innerText = "Manage Users & System Analytics";
+                fetchUsers();
             }
 
-            function logout() {
-                localStorage.clear();
-                window.location.href = '/login';
-            }
+            function logout() { localStorage.clear(); window.location.href = '/login'; }
 
-            // --- CUSTOMER FUNCTIONS ---
+            // --- CUSTOMER LOGIC ---
             async function bookRide() {
                 const pickup = document.getElementById('pickup').value;
                 const destination = document.getElementById('dropoff').value;
+                const distance = document.getElementById('distance').value;
 
-                if(!pickup || !destination) return alert("Please enter locations!");
+                if(!pickup || !destination || !distance) return alert("Fill all fields!");
+
+                const fare = (distance * 2).toFixed(2); // Simple Logic: RM 2 per KM
 
                 const res = await fetch('/api/rides', {
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pickup, destination, price: 15 })
+                    body: JSON.stringify({ pickup, destination, distance, fare })
                 });
 
-                if(res.ok) {
-                    alert("✅ Finding you a driver...");
-                    fetchTrack();
-                } else {
-                    alert("Failed to book.");
-                }
+                if(res.ok) alert("✅ Ride Booked! Fare: RM " + fare);
+                else alert("Booking Failed");
             }
 
-            async function fetchTrack() {
-                // For demo, we just list "Your Recent Rides" logic here or simple list
-                // Since there is no "List my rides" endpoint in your table, we skip for now 
-                // or you can add one. For now, we leave empty to keep it crash-free.
-            }
-
-            // --- DRIVER FUNCTIONS ---
+            // --- DRIVER LOGIC ---
             async function fetchRides() {
-                const res = await fetch('/api/rides/available', {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                });
+                const res = await fetch('/api/rides/available', { headers: { 'Authorization': 'Bearer ' + token } });
                 const rides = await res.json();
-                
                 const list = document.getElementById('listArea');
                 list.innerHTML = '<h3>Available Jobs</h3>';
-
-                if(rides.length === 0) list.innerHTML += '<p>No rides available right now.</p>';
-
+                if(rides.length === 0) list.innerHTML += '<p>No jobs currently available.</p>';
+                
                 rides.forEach(r => {
                     list.innerHTML += \`
                         <div class="item">
                             <div>
                                 <strong>\${r.pickup} ➝ \${r.destination}</strong><br>
-                                <small>RM \${r.price}</small>
+                                <small>\${r.distance} km • <b style="color:green">RM \${r.fare}</b></small>
                             </div>
-                            <button class="btn-sec" onclick="acceptRide('\${r._id}')">Accept</button>
+                            <button class="btn" onclick="acceptRide('\${r._id}')">Accept</button>
                         </div>
                     \`;
                 });
             }
 
             async function acceptRide(id) {
-                const res = await fetch(\`/api/rides/\${id}/accept\`, {
-                    method: 'PATCH',
-                    headers: { 'Authorization': 'Bearer ' + token }
-                });
+                const res = await fetch(\`/api/rides/\${id}/accept\`, { method: 'PATCH', headers: { 'Authorization': 'Bearer ' + token } });
+                if(res.ok) { alert("Ride Accepted!"); fetchRides(); }
+            }
 
-                if(res.ok) {
-                    alert("✅ Ride Accepted! Go pick them up.");
-                    fetchRides(); // Refresh list
-                } else {
-                    alert("Error accepting ride.");
-                }
+            // --- ADMIN LOGIC ---
+            async function fetchUsers() {
+                const res = await fetch('/api/admin/users', { headers: { 'Authorization': 'Bearer ' + token } });
+                const users = await res.json();
+                const list = document.getElementById('listArea');
+                list.innerHTML = '<h3>User Management</h3>';
+                
+                users.forEach(u => {
+                    list.innerHTML += \`
+                        <div class="item">
+                            <div>
+                                <strong>\${u.username}</strong> (\${u.role})<br>
+                                <small>\${u.email}</small>
+                            </div>
+                            <button class="btn btn-danger" onclick="deleteUser('\${u._id}')">Delete</button>
+                        </div>
+                    \`;
+                });
+            }
+
+            async function deleteUser(id) {
+                if(!confirm("Are you sure you want to delete this user?")) return;
+                const res = await fetch(\`/api/admin/users/\${id}\`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+                if(res.ok) fetchUsers();
+            }
+
+            async function fetchReports() {
+                const res = await fetch('/api/admin/reports', { headers: { 'Authorization': 'Bearer ' + token } });
+                const data = await res.json();
+                const list = document.getElementById('listArea');
+                list.innerHTML = \`
+                    <h3>System Analytics</h3>
+                    <div style="display:flex; justify-content:space-around; margin-top:20px;">
+                        <div style="background:#e0f7fa; padding:20px; border-radius:10px; width:45%;">
+                            <h1>\${data.totalRides}</h1>
+                            <p>Total Rides</p>
+                        </div>
+                        <div style="background:#fff3cd; padding:20px; border-radius:10px; width:45%;">
+                            <h1>RM \${data.totalRevenue}</h1>
+                            <p>Total Revenue</p>
+                        </div>
+                    </div>
+                \`;
             }
         </script>
     </body>
@@ -339,11 +362,11 @@ app.get('/', (req, res) => {
 
 app.post('/api/auth/register', async (req, res) => {
     try {
-        const { name, email, password, role } = req.body; 
+        const { username, email, password, role } = req.body; 
         if (!email || !password || !role) return res.status(400).json({ error: 'Fields required' });
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = { name, email, password: hashedPassword, role, createdAt: new Date() };
+        const newUser = { username, email, password: hashedPassword, role, createdAt: new Date() };
         
         await db.collection('users').insertOne(newUser);
         res.status(201).json({ message: "User created successfully" });
@@ -362,128 +385,46 @@ app.post('/api/auth/login', async (req, res) => {
         }
 
         const token = jwt.sign({ userId: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
-        res.json({ token, role: user.role, userId: user._id });
+        // Return username so frontend can display it
+        res.json({ token, role: user.role, userId: user._id, username: user.username });
     } catch (err) {
         res.status(500).json({ error: "Login failed" });
     }
 });
 
 // ==========================================
-// 🚕 CUSTOMER USE CASES
+// 🚕 CUSTOMER ENDPOINTS
 // ==========================================
 
 app.post('/api/rides', verifyToken, async (req, res) => {
     try {
         if (req.user.role !== 'customer') return res.status(403).json({ error: "Only customers can book" });
 
-        const { pickup, destination, price } = req.body;
+        const { pickup, destination, distance, fare } = req.body; // Updated to match MyTaxi Schema
         
         const ride = {
             customerId: new ObjectId(req.user.userId),
             pickup,
             destination,
-            price,
+            distance: parseFloat(distance),
+            fare: parseFloat(fare),
             status: "pending", 
-            paymentStatus: "unpaid",
             createdAt: new Date()
         };
 
         const result = await db.collection('rides').insertOne(ride);
         res.status(201).json({ message: "Ride requested", rideId: result.insertedId });
-
     } catch (err) {
         res.status(400).json({ error: "Bad Request" });
     }
 });
 
-app.get('/api/rides/:id/track', verifyToken, async (req, res) => {
-    try {
-        const ride = await db.collection('rides').findOne({ _id: new ObjectId(req.params.id) });
-        if (!ride) return res.status(404).json({ error: "Ride not found" });
-
-        let driverInfo = "Waiting for driver...";
-        if (ride.driverId) {
-            const driver = await db.collection('users').findOne({ _id: new ObjectId(ride.driverId) });
-            driverInfo = { name: driver.name, location: "En route (Simulated)" };
-        }
-
-        res.status(200).json({ status: ride.status, driver: driverInfo });
-
-    } catch (err) {
-        res.status(500).json({ error: "Server Error" });
-    }
-});
-
-app.patch('/api/rides/:id/cancel', verifyToken, async (req, res) => {
-    try {
-        const rideId = new ObjectId(req.params.id);
-        const ride = await db.collection('rides').findOne({ _id: rideId });
-
-        if (!ride) return res.status(404).json({ error: "Not Found" });
-        if (ride.status === 'completed') return res.status(409).json({ error: "Cannot cancel completed ride" });
-
-        await db.collection('rides').updateOne(
-            { _id: rideId },
-            { $set: { status: "cancelled" } }
-        );
-        res.status(200).json({ message: "Ride cancelled" });
-
-    } catch (err) {
-        res.status(400).json({ error: "Error cancelling ride" });
-    }
-});
-
-app.post('/api/rides/:id/payment', verifyToken, async (req, res) => {
-    try {
-        const { amount, method } = req.body; 
-        const rideId = new ObjectId(req.params.id);
-
-        if (!amount) return res.status(402).json({ error: "Payment Required" });
-
-        await db.collection('rides').updateOne(
-            { _id: rideId },
-            { $set: { paymentStatus: "paid", paymentMethod: method } }
-        );
-
-        res.status(201).json({ message: "Payment successful" });
-
-    } catch (err) {
-        res.status(400).json({ error: "Payment failed" });
-    }
-});
-
-app.post('/api/rides/:id/review', verifyToken, async (req, res) => {
-    try {
-        const { rating, comment } = req.body;
-        const rideId = new ObjectId(req.params.id);
-
-        const ride = await db.collection('rides').findOne({ _id: rideId });
-        if (!ride) return res.status(404).json({ error: "Ride not found" });
-
-        const review = {
-            rideId,
-            driverId: ride.driverId,
-            customerId: req.user.userId,
-            rating,
-            comment,
-            createdAt: new Date()
-        };
-
-        await db.collection('reviews').insertOne(review);
-        res.status(201).json({ message: "Review submitted" });
-
-    } catch (err) {
-        res.status(400).json({ error: "Error submitting review" });
-    }
-});
-
 // ==========================================
-// 🛵 DRIVER USE CASES
+// 🛵 DRIVER ENDPOINTS
 // ==========================================
 
 app.get('/api/rides/available', verifyToken, async (req, res) => {
     if (req.user.role !== 'driver') return res.status(401).json({ error: "Unauthorized" });
-
     const rides = await db.collection('rides').find({ status: "pending" }).toArray();
     res.status(200).json(rides);
 });
@@ -491,97 +432,44 @@ app.get('/api/rides/available', verifyToken, async (req, res) => {
 app.patch('/api/rides/:id/accept', verifyToken, async (req, res) => {
     try {
         if (req.user.role !== 'driver') return res.status(401).json({ error: "Unauthorized" });
-
         const rideId = new ObjectId(req.params.id);
-        const ride = await db.collection('rides').findOne({ _id: rideId });
-
-        if (!ride) return res.status(404).json({ error: "Not Found" });
-        if (ride.status !== "pending") return res.status(409).json({ error: "Ride already taken" });
-
+        
         await db.collection('rides').updateOne(
             { _id: rideId },
             { $set: { status: "accepted", driverId: new ObjectId(req.user.userId) } }
         );
-
         res.status(200).json({ message: "Ride accepted" });
-
     } catch (err) {
         res.status(500).json({ error: "Server error" });
     }
 });
 
-app.get('/api/driver/:id/earning', verifyToken, async (req, res) => {
-    try {
-        const driverId = new ObjectId(req.params.id);
-
-        const stats = await db.collection('rides').aggregate([
-            { $match: { driverId: driverId, status: "completed" } },
-            { $group: { _id: null, totalEarnings: { $sum: "$price" } } }
-        ]).toArray();
-
-        const total = stats.length > 0 ? stats[0].totalEarnings : 0;
-        res.status(200).json({ driverId, totalEarnings: total });
-
-    } catch (err) {
-        res.status(404).json({ error: "Driver not found" });
-    }
-});
-
 // ==========================================
-// 🛡️ ADMIN USE CASES
+// 🛡️ ADMIN ENDPOINTS (New Additions)
 // ==========================================
 
-app.patch('/api/admin/users/:id', verifyToken, requireAdmin, async (req, res) => {
-    try {
-        const { blocked } = req.body; 
-        const result = await db.collection('users').updateOne(
-            { _id: new ObjectId(req.params.id) },
-            { $set: { blocked: blocked } }
-        );
-
-        if (result.matchedCount === 0) return res.status(404).json({ error: "User not found" });
-        res.status(200).json({ message: "User updated" });
-
-    } catch (err) {
-        res.status(403).json({ error: "Forbidden" });
-    }
+// GET ALL USERS (For Admin Dashboard)
+app.get('/api/admin/users', verifyToken, requireAdmin, async (req, res) => {
+    const users = await db.collection('users').find().toArray();
+    res.status(200).json(users);
 });
 
-app.get('/api/admin/rides', verifyToken, requireAdmin, async (req, res) => {
-    try {
-        const rides = await db.collection('rides').find().toArray();
-        res.status(200).json(rides);
-    } catch (err) {
-        res.status(401).json({ error: "Unauthorized" });
-    }
-});
-
-app.delete('/api/admin/reviews/:id', verifyToken, requireAdmin, async (req, res) => {
-    try {
-        const result = await db.collection('reviews').deleteOne({ _id: new ObjectId(req.params.id) });
-        if (result.deletedCount === 0) return res.status(404).json({ error: "Not Found" });
-
-        res.status(204).send(); 
-    } catch (err) {
-        res.status(403).json({ error: "Forbidden" });
-    }
+// DELETE USER (For Admin Dashboard)
+app.delete('/api/admin/users/:id', verifyToken, requireAdmin, async (req, res) => {
+    await db.collection('users').deleteOne({ _id: new ObjectId(req.params.id) });
+    res.status(200).json({ message: "User deleted" });
 });
 
 app.get('/api/admin/reports', verifyToken, requireAdmin, async (req, res) => {
-    try {
-        const totalRides = await db.collection('rides').countDocuments();
-        const totalRevenue = await db.collection('rides').aggregate([
-            { $group: { _id: null, total: { $sum: "$price" } } }
-        ]).toArray();
+    const totalRides = await db.collection('rides').countDocuments();
+    const totalRevenue = await db.collection('rides').aggregate([
+        { $group: { _id: null, total: { $sum: "$fare" } } } // Summing 'fare' now
+    ]).toArray();
 
-        res.status(200).json({
-            reportDate: new Date(),
-            totalRides,
-            totalRevenue: totalRevenue[0]?.total || 0
-        });
-    } catch (err) {
-        res.status(401).json({ error: "Unauthorized" });
-    }
+    res.status(200).json({
+        totalRides,
+        totalRevenue: totalRevenue[0]?.total || 0
+    });
 });
 
 // Start Server
